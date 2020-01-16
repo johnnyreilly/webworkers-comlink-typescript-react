@@ -3,7 +3,13 @@ import ReactDOM from 'react-dom';
 import './index.css';
 import App from './App';
 import * as serviceWorker from './serviceWorker';
-import { takeALongTimeToDoSomething } from './takeALongTimeToDoSomething';
+import { wrap } from 'comlink';
+
+function takeALongTimeToDoSomething() {
+    const worker = new Worker('./my-first-worker', { name: 'my-first-worker', type: 'module' });
+    const workerApi = wrap<import('./my-first-worker').MyFirstWorker>(worker);
+    workerApi.takeALongTimeToDoSomething();    
+}
 
 ReactDOM.render(<App />, document.getElementById('root'));
 
