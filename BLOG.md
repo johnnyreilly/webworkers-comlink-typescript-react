@@ -228,3 +228,14 @@ function takeALongTimeToDoSomething() {
 }
 ```
 
+Now we're ready to demo our application using our function offloaded into a Web Worker. It now behaves like this:
+
+![a demo of non-blocking](non-blocking.gif)
+
+There's a number of exciting things to note here:
+
+1. The application is now non-blocking.  Our long running function is now not preventing the UI from updating
+2. The functionality is lazily loaded via a `my-first-worker.chunk.worker.js` that has been created by the `worker-plugin` and `comlink`.
+
+#### Using Web Workers in React
+
