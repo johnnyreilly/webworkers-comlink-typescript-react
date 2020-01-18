@@ -329,7 +329,7 @@ Alongside our `App.tsx` file let's create an `App.hooks.ts` file.
 
 ```ts
 import { wrap, releaseProxy, Remote } from "comlink";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 /**
  * Our hook that performs the calculation on the worker
@@ -344,23 +344,38 @@ export function useTakeALongTimeToAddTwoNumbers(
     total: undefined as number | undefined
   });
 
-  useEffect(() => {
-    // Here we acquire our worker as well as a cleanup function which our hook will run when disposed
-    const { workerApi, cleanup } = getWorker();
+  // acquire our worker; it's wrapped in a ref so we don't recreate web workers as the inputs change
+  const workerApiRef = useWorker()
 
+  useEffect(() => {
     // We're starting the calculation here
     setData({ isCalculating: true, total: undefined });
 
+    const { workerApi } = workerApiRef.current;
     workerApi
       .takeALongTimeToAddTwoNumbers(number1, number2)
       .then(total => setData({ isCalculating: false, total })); // We receive the result here
 
-    return () => {
-      cleanup();
-    };
-  }, [setData, number1, number2]);
+  }, [workerApiRef, setData, number1, number2]);
 
   return data;
+}
+
+function useWorker() {
+  const workerAndCleanup = useRef(
+    getWorker()
+  );
+
+  useEffect(() => {
+    const { cleanup } = workerAndCleanup.current;
+
+    // cleanup when we're done with our worker
+    return () => {
+      cleanup()
+    };
+  }, [workerAndCleanup]);
+
+  return workerAndCleanup;
 }
 
 // We don't want to create a worker each time we trigger our hook
