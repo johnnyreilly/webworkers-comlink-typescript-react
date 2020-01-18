@@ -328,8 +328,8 @@ expose(exports);
 Alongside our `App.tsx` file let's create an `App.hooks.ts` file.
 
 ```ts
-import { wrap, releaseProxy, Remote } from "comlink";
-import { useEffect, useState, useRef } from "react";
+import { wrap, releaseProxy } from "comlink";
+import { useEffect, useState, useMemo } from "react";
 
 /**
  * Our hook that performs the calculation on the worker
@@ -344,58 +344,42 @@ export function useTakeALongTimeToAddTwoNumbers(
     total: undefined as number | undefined
   });
 
-  // acquire our worker; it's wrapped in a ref so we don't recreate web workers as the inputs change
-  const workerApiRef = useWorker()
+  // acquire our worker
+  const { workerApi } = useWorker();
 
   useEffect(() => {
     // We're starting the calculation here
     setData({ isCalculating: true, total: undefined });
 
-    const { workerApi } = workerApiRef.current;
     workerApi
       .takeALongTimeToAddTwoNumbers(number1, number2)
       .then(total => setData({ isCalculating: false, total })); // We receive the result here
-
-  }, [workerApiRef, setData, number1, number2]);
+  }, [workerApi, setData, number1, number2]);
 
   return data;
 }
 
 function useWorker() {
-  const workerAndCleanup = useRef(
-    getWorker()
-  );
+  // memoise a worker so it can be reused; create one worker up front
+  // and then reuse it subsequently; no creating new workers each time
+  const workerApiAndCleanup = useMemo(() => makeWorkerApiAndCleanup(), []);
 
   useEffect(() => {
-    const { cleanup } = workerAndCleanup.current;
+    const { cleanup } = workerApiAndCleanup;
 
-    // cleanup when we're done with our worker
+    // cleanup our worker when we're done with it
     return () => {
-      cleanup()
+      cleanup();
     };
-  }, [workerAndCleanup]);
+  }, [workerApiAndCleanup]);
 
-  return workerAndCleanup;
+  return workerApiAndCleanup;
 }
 
-// We don't want to create a worker each time we trigger our hook
-// so once we've created it for the first time we'll store it in this variable
-let workerApiAndCleanup:
-  | {
-      workerApi: Remote<import("./my-first-worker").MyFirstWorker>;
-      cleanup: () => void;
-    }
-  | undefined;
-
 /**
- * Either returns the already created worker in workerApiAndCleanup
- * or creates the worker, a cleanup function and returns it
+ * Creates a worker, a cleanup function and returns it
  */
-function getWorker() {
-  if (workerApiAndCleanup) {
-    return workerApiAndCleanup;
-  }
-
+function makeWorkerApiAndCleanup() {
   // Here we create our worker and wrap it with comlink so we can interact with it
   const worker = new Worker("./my-first-worker", {
     name: "my-first-worker",
@@ -403,21 +387,21 @@ function getWorker() {
   });
   const workerApi = wrap<import("./my-first-worker").MyFirstWorker>(worker);
 
-  // A cleanup function that releases the comlink proxy, terminates the worker
-  // and empties the workerApiAndCleanup variable
+  // A cleanup function that releases the comlink proxy and terminates the worker
   const cleanup = () => {
     workerApi[releaseProxy]();
     worker.terminate();
-    workerApiAndCleanup = undefined;
   };
 
-  workerApiAndCleanup = { workerApi, cleanup };
+  const workerApiAndCleanup = { workerApi, cleanup };
 
   return workerApiAndCleanup;
 }
 ```
 
-We'll change our `App.tsx` to use the new `useTakeALongTimeToAddTwoNumbers` hook:
+The `useWorker` and `makeWorkerApiAndCleanup` functions make up the basis of a shareable worker hooks approach.  It would take very little work to paramaterise them so this could be used elsewhere.  That's outside the scope of this post but would be extremely straightforward to accomplish.
+
+Time to test!  We'll change our `App.tsx` to use the new `useTakeALongTimeToAddTwoNumbers` hook:
 
 ```tsx
 import React, { useState } from "react";
