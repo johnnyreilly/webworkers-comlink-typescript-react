@@ -326,3 +326,130 @@ expose(exports);
 ```
 
 Alongside our `App.tsx` file let's create an `App.hooks.ts` file.
+
+```ts
+import { wrap, releaseProxy, Remote } from "comlink";
+import { useEffect, useState } from "react";
+
+/**
+ * Our hook that performs the calculation on the worker
+ */
+export function useTakeALongTimeToAddTwoNumbers(
+  number1: number,
+  number2: number
+) {
+  // We'll want to expose a wrapping object so we know when a calculation is in progress
+  const [data, setData] = useState({
+    isCalculating: false,
+    total: undefined as number | undefined
+  });
+
+  useEffect(() => {
+    // Here we acquire our worker as well as a cleanup function which our hook will run when disposed
+    const { workerApi, cleanup } = getWorker();
+
+    // We're starting the calculation here
+    setData({ isCalculating: true, total: undefined });
+
+    workerApi
+      .takeALongTimeToAddTwoNumbers(number1, number2)
+      .then(total => setData({ isCalculating: false, total })); // We receive the result here
+
+    return () => {
+      cleanup();
+    };
+  }, [setData, number1, number2]);
+
+  return data;
+}
+
+// We don't want to create a worker each time we trigger our hook
+// so once we've created it for the first time we'll store it in this variable
+let workerApiAndCleanup:
+  | {
+      workerApi: Remote<import("./my-first-worker").MyFirstWorker>;
+      cleanup: () => void;
+    }
+  | undefined;
+
+/**
+ * Either returns the already created worker in workerApiAndCleanup
+ * or creates the worker, a cleanup function and returns it
+ */
+function getWorker() {
+  if (workerApiAndCleanup) {
+    return workerApiAndCleanup;
+  }
+
+  // Here we create our worker and wrap it with comlink so we can interact with it
+  const worker = new Worker("./my-first-worker", {
+    name: "my-first-worker",
+    type: "module"
+  });
+  const workerApi = wrap<import("./my-first-worker").MyFirstWorker>(worker);
+
+  // A cleanup function that releases the comlink proxy, terminates the worker
+  // and empties the workerApiAndCleanup variable
+  const cleanup = () => {
+    workerApi[releaseProxy]();
+    worker.terminate();
+    workerApiAndCleanup = undefined;
+  };
+
+  workerApiAndCleanup = { workerApi, cleanup };
+
+  return workerApiAndCleanup;
+}
+```
+
+We'll change our `App.tsx` to use the new `useTakeALongTimeToAddTwoNumbers` hook:
+
+```tsx
+import React, { useState } from "react";
+import "./App.css";
+import { useTakeALongTimeToAddTwoNumbers } from "./App.hooks";
+
+const App: React.FC = () => {
+  const [number1, setNumber1] = useState(1);
+  const [number2, setNumber2] = useState(2);
+
+  const total = useTakeALongTimeToAddTwoNumbers(number1, number2);
+
+  return (
+    <div className="App">
+      <h1>Web Workers in action!</h1>
+
+      <div>
+        <label>Number to add: </label>
+        <input
+          type="number"
+          onChange={e => setNumber1(parseInt(e.target.value))}
+          value={number1}
+        />
+      </div>
+      <div>
+        <label>Number to add: </label>
+        <input
+          type="number"
+          onChange={e => setNumber2(parseInt(e.target.value))}
+          value={number2}
+        />
+      </div>
+      <h2>
+        Total:{" "}
+        {total.isCalculating ? (
+          <em>Calculating...</em>
+        ) : (
+          <strong>{total.total}</strong>
+        )}
+      </h2>
+    </div>
+  );
+};
+
+export default App;
+```
+
+Now our calculation takes place off the main thread and the UI is no longer blocked!
+
+![non blocking react](./non-blocking-react.gif)

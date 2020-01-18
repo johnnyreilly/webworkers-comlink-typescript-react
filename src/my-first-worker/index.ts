@@ -1,8 +1,12 @@
-import { expose } from 'comlink';
-import { takeALongTimeToDoSomething } from '../takeALongTimeToDoSomething';
+import { expose } from "comlink";
+import {
+  takeALongTimeToDoSomething,
+  takeALongTimeToAddTwoNumbers
+} from "../takeALongTimeToDoSomething";
 
 const exports = {
-    takeALongTimeToDoSomething
+  takeALongTimeToDoSomething,
+  takeALongTimeToAddTwoNumbers
 };
 export type MyFirstWorker = typeof exports;
 

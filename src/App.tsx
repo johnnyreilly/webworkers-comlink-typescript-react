@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import "./App.css";
-import { takeALongTimeToAddTwoNumbers } from "./takeALongTimeToDoSomething";
+import { useTakeALongTimeToAddTwoNumbers } from "./App.hooks";
 
 const App: React.FC = () => {
   const [number1, setNumber1] = useState(1);
   const [number2, setNumber2] = useState(2);
 
-  const total = takeALongTimeToAddTwoNumbers(number1, number2);
+  const total = useTakeALongTimeToAddTwoNumbers(number1, number2);
 
   return (
     <div className="App">
@@ -28,7 +28,14 @@ const App: React.FC = () => {
           value={number2}
         />
       </div>
-      <h2>Total: {total}</h2>
+      <h2>
+        Total:{" "}
+        {total.isCalculating ? (
+          <em>Calculating...</em>
+        ) : (
+          <strong>{total.total}</strong>
+        )}
+      </h2>
     </div>
   );
 };
