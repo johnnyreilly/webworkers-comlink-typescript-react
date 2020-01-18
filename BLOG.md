@@ -239,3 +239,90 @@ There's a number of exciting things to note here:
 
 #### Using Web Workers in React
 
+The example we've showed so far demostrates how you could use Web Workers and why you might want to.  However, it's a far cry from a real world use case.  Let's take the next step and plug our Web Worker usage into our React application.  What would that look like?  Let's find out.
+
+We'll return `index.tsx` back to it's initial state.  Then we'll make a simple adder function that takes some values and returns their total.  To our `takeALongTimeToDoSomething.ts` module let's add:
+
+```ts
+export function takeALongTimeToAddTwoNumbers(number1: number, number2: number) {
+    console.log('Start to add...');
+    const seconds = 5;
+    const start = new Date().getTime();
+    const delay = seconds * 1000;
+    while (true) {
+        if ((new Date().getTime() - start) > delay) {
+            break;
+        }
+    }
+    const total = number1 + number2;
+    console.log('Finished adding');
+    return total;
+}
+```
+
+Let's start using our long running calculator in a React component.  We'll update our `App.tsx` to use this function and create a simple adder component:
+
+```tsx
+import React, { useState } from "react";
+import "./App.css";
+import { takeALongTimeToAddTwoNumbers } from "./takeALongTimeToDoSomething";
+
+const App: React.FC = () => {
+  const [number1, setNumber1] = useState(1);
+  const [number2, setNumber2] = useState(2);
+
+  const total = takeALongTimeToAddTwoNumbers(number1, number2);
+
+  return (
+    <div className="App">
+      <h1>Web Workers in action!</h1>
+
+      <div>
+        <label>Number to add: </label>
+        <input
+          type="number"
+          onChange={e => setNumber1(parseInt(e.target.value))}
+          value={number1}
+        />
+      </div>
+      <div>
+        <label>Number to add: </label>
+        <input
+          type="number"
+          onChange={e => setNumber2(parseInt(e.target.value))}
+          value={number2}
+        />
+      </div>
+      <h2>Total: {total}</h2>
+    </div>
+  );
+};
+
+export default App;
+```
+
+When you try it out you'll notice that entering a single digit locks the UI for 5 seconds whilst it adds the numbers. From the moment the cursor stops blinking to the moment the screen updates the UI is non-responsive:
+
+![blocking react](./blocking-react.gif)
+
+So far, so classic. Let's Web Workerify this!
+
+We'll update our `my-first-worker/index.ts` to import this new function:
+
+```ts
+import { expose } from "comlink";
+import {
+  takeALongTimeToDoSomething,
+  takeALongTimeToAddTwoNumbers
+} from "../takeALongTimeToDoSomething";
+
+const exports = {
+  takeALongTimeToDoSomething,
+  takeALongTimeToAddTwoNumbers
+};
+export type MyFirstWorker = typeof exports;
+
+expose(exports);
+```
+
+Alongside our `App.tsx` file let's create an `App.hooks.ts` file.

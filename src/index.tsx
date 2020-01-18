@@ -3,13 +3,6 @@ import ReactDOM from 'react-dom';
 import './index.css';
 import App from './App';
 import * as serviceWorker from './serviceWorker';
-import { wrap } from 'comlink';
-
-function takeALongTimeToDoSomething() {
-    const worker = new Worker('./my-first-worker', { name: 'my-first-worker', type: 'module' });
-    const workerApi = wrap<import('./my-first-worker').MyFirstWorker>(worker);
-    workerApi.takeALongTimeToDoSomething();    
-}
 
 ReactDOM.render(<App />, document.getElementById('root'));
 
@@ -18,6 +11,3 @@ ReactDOM.render(<App />, document.getElementById('root'));
 // Learn more about service workers: https://bit.ly/CRA-PWA
 serviceWorker.unregister();
 
-console.log('Do something');
-takeALongTimeToDoSomething();
-console.log('Do another thing');
